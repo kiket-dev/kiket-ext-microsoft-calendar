@@ -1,0 +1,121 @@
+model_version: "1.0"
+extension:
+  id: dev.kiket.ext.microsoft-calendar
+  name: Microsoft Calendar
+  version: 1.0.0
+  description: Sync Outlook Calendar events to team capacity planning. Automatically imports events from Microsoft 365 and updates availability.
+  author: Kiket Team
+  homepage: https://github.com/kiket-dev/kiket-ext-microsoft-calendar
+  delivery: http
+  callback:
+    url: ${EXTENSION_BASE_URL}
+    secret: env.KIKET_WEBHOOK_SECRET
+    timeout: 30000
+    required: true
+  activationEvents:
+    - calendar.sync
+    - calendar.list
+    - calendar.events
+  permissions:
+    - calendars:read
+    - capacity:write
+    - users:read
+  capabilities:
+    - calendar-sync
+  requires:
+    oauth_provider:
+      provider: microsoft-oauth
+      scopes:
+        - Calendars.Read
+      on_missing: prompt_connect
+  hooks:
+    - event: calendar.sync
+      timeout: 60000
+      retries: 2
+      description: Sync calendar events from Outlook Calendar
+    - event: calendar.list
+      timeout: 10000
+      retries: 1
+      description: List available Outlook Calendars
+    - event: calendar.events
+      timeout: 30000
+      retries: 2
+      description: Fetch events for a specific calendar
+  contributes:
+    commands:
+      - command: microsoftCalendar.sync
+        title: Sync Outlook Calendar
+        description: Manually trigger calendar sync
+        category: Calendar
+        icon: bi-arrow-repeat
+        keywords: ["microsoft", "outlook", "calendar", "sync"]
+        handler:
+          type: extension_event
+          event: microsoftCalendar.syncNow
+      - command: microsoftCalendar.listCalendars
+        title: List Outlook Calendars
+        description: View available Outlook Calendars
+        category: Calendar
+        icon: bi-calendar3
+        keywords: ["microsoft", "outlook", "calendar", "list"]
+        handler:
+          type: extension_event
+          event: microsoftCalendar.listCalendars
+  configuration:
+    default_sync_interval:
+      type: integer
+      default: "60"
+      min: 15
+      max: 1440
+      label: Default Sync Interval (minutes)
+      description: How often to sync calendar events
+    sync_window_days:
+      type: integer
+      default: "180"
+      min: 30
+      max: 365
+      label: Sync Window (days)
+      description: How far ahead to sync events
+    include_private_events:
+      type: boolean
+      default: "false"
+      label: Include Private Events
+      description: Sync events marked as private (title only, no details)
+    include_tentative:
+      type: boolean
+      default: "true"
+      label: Include Tentative Events
+      description: Include events you have tentatively accepted
+    event_type_mapping:
+      type: object
+      label: Event Type Mapping
+      description: Map Outlook categories to event types
+      default: |
+        {
+          "holiday": ["holiday", "bank holiday"],
+          "pto": ["vacation", "pto", "out of office", "ooo", "time off"],
+          "travel": ["travel", "flight", "trip"],
+          "focus": ["focus", "deep work", "heads down", "focus time"],
+          "training": ["training", "learning", "workshop"]
+        }
+  rate_limiting:
+    requests_per_minute: 60
+    burst: 20
+  setup:
+    - oauth:
+        title: Connect Microsoft Account
+        description: Connect your Microsoft account to sync calendars
+        provider: microsoft-oauth
+        scopes:
+          - Calendars.Read
+    - configure:
+        title: Configure Sync Settings
+        description: Set up how calendar events are synchronized
+        collect:
+          - default_sync_interval
+          - sync_window_days
+          - include_private_events
+          - include_tentative
+  assets:
+    icon: ./public/icon.svg
+  hosting: internal
